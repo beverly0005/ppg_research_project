@@ -1,9 +1,9 @@
 
 # Project Overview
 
-**Project Name:** {{ Replace with your POC name }}
+**Project Name:** {{ Non-Invasive Measurement of Blood Glucose Using PPG }}
 
-**Team/Owner:** {{ Owner or team name }}
+**Team/Owner:** {{ DS Team }}
 
 **Objective:** Describe what this POC is trying to demonstrate.
 
