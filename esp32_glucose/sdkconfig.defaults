@@ -1,0 +1,38 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  sdkconfig.defaults  –  Project-specific Kconfig defaults
+#  Applied automatically by `idf.py build` before menuconfig values.
+#  Board: Waveshare ESP32-S3-DEV-KIT-N16R8 (16 MB Flash, 8 MB OPI PSRAM)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Target ───────────────────────────────────────────────────────────────────
+CONFIG_IDF_TARGET="esp32s3"
+
+# ── Flash ─────────────────────────────────────────────────────────────────────
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+# Partition table: 3 MB app, rest for storage
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# ── PSRAM (OPI — 8 MB) ───────────────────────────────────────────────────────
+CONFIG_ESP32S3_SPIRAM_SUPPORT=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+# Allow heap_caps_malloc(size, MALLOC_CAP_SPIRAM) for tensor arena
+CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y
+
+# ── CPU ──────────────────────────────────────────────────────────────────────
+CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240=y
+
+# ── USB-CDC Serial (for idf.py monitor) ──────────────────────────────────────
+CONFIG_ESP_CONSOLE_USB_CDC=y
+CONFIG_USB_CDC_ENABLED=y
+
+# ── Stack / heap ─────────────────────────────────────────────────────────────
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+CONFIG_FREERTOS_IDLE_TASK_STACKSIZE=1024
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
