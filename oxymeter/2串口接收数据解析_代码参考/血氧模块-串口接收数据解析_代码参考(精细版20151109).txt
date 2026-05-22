@@ -1,0 +1,208 @@
+///////////////////////////////////////////////////////////////////////
+18种输出数据形式
+U2:1,1,1
+U2:1,1,12
+U2:1,1,123
+U2:1,12,1
+U2:1,12,12
+U2:1,12,123
+U2:1,123,1
+U2:1,123,12
+U2:1,123,123
+
+U2:12,1,1
+U2:12,1,12
+U2:12,1,123
+U2:12,12,1
+U2:12,12,12
+U2:12,12,123
+U2:12,123,1
+U2:12,123,12
+U2:12,123,123
+
+以上是发送的数据形式，U2：血氧，脉率，灌注指数。1表示数据只有个位，12表示该数据有十位和个位，123表示该数据有百位、十位和个位。
+以上共有十八种形式，逐一判断便可解析出任何一种组合方式。在前面的是高位后面的是低位。
+///////////////////////////////////////////////////////////////////////
+
+//解析接收到的血样模块数据
+static uint8 Handle_at_comm(uint8 *pBuf)
+{	
+	if(Cmp_Byte_N(pBuf,"U2:",3)==1) //如果接收到的数据前三个字节是“U2：”，后面的数据就是“血氧”，“脉率”和“灌注指数”的数据。
+	{
+		//血氧数据
+		
+		if(','==*(pBuf+4)) //判断脉率有效数据位数，如果*(pBuf+4)是‘，’	，则脉率只有个位
+		{
+		    TxString("血氧:"); //血氧值个位是*(pBuf+3)。	
+		    SendData(*(pBuf+3)-'0');
+
+                        //脉率数据
+			
+			if(','==*(pBuf+6)) //判断脉率有效数据位数，如果*(pBuf+6)是‘，’	，则脉率只有个位个位*(pBuf+5)
+			{
+			    TxString("脉率:");
+				SendData(*(pBuf+5)-'0');
+				
+				//灌注指数数据
+				TxString("弱灌注:");
+				if('\r'==*(pBuf+8))
+				{
+				    SendData(*(pBuf+7)-'0');
+				}
+				else if('\r'==*(pBuf+9)) //判断灌注指数有效数据位数，如果*(pBuf+9)是‘\r’	，则灌注指数只有十位和个位，十位*(pBuf+7)，个位*(pBuf+8)
+				{
+					SendData(*(pBuf+7)-'0');
+				    SendData(*(pBuf+8)-'0');
+				}
+				else if('\r'==*(pBuf+10))//否则，则灌注指数有百位、十位和个位，百位*(pBuf+7)，十位*(pBuf+8)，个位*(pBuf+9)
+				{
+				    SendData(*(pBuf+7)-'0');
+					SendData(*(pBuf+8)-'0');
+				    SendData(*(pBuf+9)-'0');			
+				}
+			    		
+			}
+			else if(','==*(pBuf+7)) //判断脉率有效数据位数，如果*(pBuf+7)是‘，’	，则脉率只有十位和个位，十位*(pBuf+5)，个位*(pBuf+6)
+			{
+			    TxString("脉率:");
+				SendData(*(pBuf+5)-'0');
+				SendData(*(pBuf+6)-'0');	
+				
+				//灌注指数数据
+				TxString("弱灌注:");
+				if('\r'==*(pBuf+9))
+				{
+				    SendData(*(pBuf+8)-'0');
+				}
+				else if('\r'==*(pBuf+10)) //判断灌注指数有效数据位数，如果*(pBuf+10)是‘\r’	，则灌注指数只有十位和个位，十位*(pBuf+8)，个位*(pBuf+9)
+				{
+					SendData(*(pBuf+8)-'0');
+				    SendData(*(pBuf+9)-'0');
+				}
+				else if('\r'==*(pBuf+11))//否则，则灌注指数有百位、十位和个位，百位*(pBuf+8)，十位*(pBuf+9)，个位*(pBuf+10)
+				{
+				    SendData(*(pBuf+8)-'0');
+					SendData(*(pBuf+9)-'0');
+				    SendData(*(pBuf+10)-'0');			
+				}
+			    		
+			}
+			else if(','==*(pBuf+8)) //否则，则脉率有百位、十位和个位，百位*(pBuf+5)，十位*(pBuf+6)，个位*(pBuf+7)
+			{	 
+			    TxString("脉率:"); 
+			    SendData(*(pBuf+5)-'0');
+				SendData(*(pBuf+6)-'0');
+				SendData(*(pBuf+7)-'0');
+	
+				//灌注指数数据
+				TxString("弱灌注:");
+				if('\r'==*(pBuf+10))		 //判断灌注指数有效数据位数，如果*(pBuf+10)是‘\r’	，则灌注指数只有个位，
+				{
+				    SendData(*(pBuf+9)-'0');
+				}
+				else if('\r'==*(pBuf+11)) //判断灌注指数有效数据位数，如果*(pBuf+11)是‘\r’	，则灌注指数只有十位和个位，十位*(pBuf+9)，个位*(pBuf+10)
+				{
+					SendData(*(pBuf+9)-'0');
+				    SendData(*(pBuf+10)-'0');
+				}
+				else if('\r'==*(pBuf+12))//否则，则灌注指数有百位、十位和个位，百位*(pBuf+9)，十位*(pBuf+10)，个位*(pBuf+11)
+				{
+				    SendData(*(pBuf+9)-'0');
+					SendData(*(pBuf+10)-'0');
+				    SendData(*(pBuf+11)-'0');			
+				}
+			}		
+		}
+		else
+		{
+		    TxString("血氧:"); //血氧值十位是*(pBuf+3)，个位是*(pBuf+4)。	
+		    SendData(*(pBuf+3)-'0');
+			SendData(*(pBuf+4)-'0');
+
+		 	//脉率数据
+			
+			if(','==*(pBuf+7)) //判断脉率有效数据位数，脉率只有十位和个位
+			{
+			    TxString("脉率:");
+				SendData(*(pBuf+6)-'0');
+				
+				//灌注指数数据
+				TxString("弱灌注:");
+				if('\r'==*(pBuf+9))
+				{
+				    SendData(*(pBuf+8)-'0');
+				}
+				else if('\r'==*(pBuf+10)) //判断灌注指数有效数据位数，灌注指数只有十位和个位
+				{
+					SendData(*(pBuf+8)-'0');
+				    SendData(*(pBuf+9)-'0');
+				}
+				else if('\r'==*(pBuf+11))//否则，则灌注指数有百位、十位和个位
+				{
+				    SendData(*(pBuf+8)-'0');
+					SendData(*(pBuf+9)-'0');
+				    SendData(*(pBuf+10)-'0');			
+				}
+			    		
+			}
+			else if(','==*(pBuf+8)) //判断脉率有效数据位数，脉率只有十位和个位
+			{
+			    TxString("脉率:");
+				SendData(*(pBuf+6)-'0');
+				SendData(*(pBuf+7)-'0');	
+				
+				//灌注指数数据
+				TxString("弱灌注:");
+				if('\r'==*(pBuf+10))
+				{
+				    SendData(*(pBuf+9)-'0');
+				}
+				else if('\r'==*(pBuf+11)) //判断灌注指数有效数据位数，灌注指数只有十位和个位
+				{
+					SendData(*(pBuf+9)-'0');
+				    SendData(*(pBuf+10)-'0');
+				}
+				else if('\r'==*(pBuf+12))//否则，则灌注指数有百位、十位和个位
+				{
+				    SendData(*(pBuf+9)-'0');
+					SendData(*(pBuf+10)-'0');
+				    SendData(*(pBuf+11)-'0');			
+				}
+			    		
+			}
+			else if(','==*(pBuf+9)) //否则，则脉率有百位、十位和个位
+			{	 
+			    TxString("脉率:"); 
+			    SendData(*(pBuf+6)-'0');
+				SendData(*(pBuf+7)-'0');
+				SendData(*(pBuf+8)-'0');
+	
+				//灌注指数数据
+				TxString("弱灌注:");
+				if('\r'==*(pBuf+11))	   //判断灌注指数有效数据位数，灌注指数只有个位
+				{
+				    SendData(*(pBuf+10)-'0');
+				}
+				else if('\r'==*(pBuf+12)) //判断灌注指数有效数据位数，灌注指数只有十位和个位
+				{
+					SendData(*(pBuf+10)-'0');
+				    SendData(*(pBuf+11)-'0');
+				}
+				else if('\r'==*(pBuf+13))//否则，则灌注指数有百位、十位和个位
+				{
+				    SendData(*(pBuf+10)-'0');
+					SendData(*(pBuf+11)-'0');
+				    SendData(*(pBuf+12)-'0');			
+				}
+			}		
+		}
+
+
+	
+
+
+		TxString("\r\n");
+		return 1;
+	}	
+	else	return 0;
+}

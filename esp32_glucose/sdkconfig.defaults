@@ -31,7 +31,7 @@ CONFIG_ESP_CONSOLE_USB_CDC=y
 CONFIG_USB_CDC_ENABLED=y
 
 # ── Stack / heap ─────────────────────────────────────────────────────────────
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=32768
 CONFIG_FREERTOS_IDLE_TASK_STACKSIZE=1024
 
 # ── Logging ───────────────────────────────────────────────────────────────────

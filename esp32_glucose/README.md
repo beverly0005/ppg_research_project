@@ -190,3 +190,8 @@ Unlike the Arduino library, all ops are available — you just need to declare t
 | `Schema mismatch`                       | Reconvert model with same TF version as esp-tflite-micro                                 |
 | Keypad unresponsive                     | Check row/col wiring orientation                                                         |
 | PSRAM alloc failed                      | Confirm `sdkconfig.defaults` applied: `idf.py menuconfig` → Component config → ESP PSRAM |
+
+cd esp32_glucose
+source .venv/bin/activate
+. ~/esp-idf-v6.0.1/export.sh
+idf.py -p /dev/cu.usbmodem1101 monitor

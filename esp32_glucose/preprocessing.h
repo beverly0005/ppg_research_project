@@ -14,7 +14,6 @@
 #endif
 // ─────────────────────────────────────────────────────────────────────────────
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  preprocessing.h  –  PPG signal processing pipeline
 //
@@ -34,9 +33,11 @@
 static inline float clampf(float v, float lo, float hi) {
     return v < lo ? lo : (v > hi ? hi : v);
 }
-static inline float medianf(float* a, int n) {
+static float medianf(float* a, int n) {
     // Simple insertion sort then pick middle
-    float tmp[n];
+    // Static buffer — safe because preprocessing is always single-threaded
+    static float tmp[MAX_RESAMP_SAMPLES];
+    if (n > MAX_RESAMP_SAMPLES) n = MAX_RESAMP_SAMPLES;
     memcpy(tmp, a, n * sizeof(float));
     for (int i = 1; i < n; i++) {
         float key = tmp[i]; int j = i - 1;
@@ -47,13 +48,13 @@ static inline float medianf(float* a, int n) {
 }
 
 // ─── 1. Invert ────────────────────────────────────────────────────────────────
-inline void invert_signal(float* sig, int n) {
+void invert_signal(float* sig, int n) {
     for (int i = 0; i < n; i++) sig[i] = -sig[i];
 }
 
 // ─── 2. Linear resample ───────────────────────────────────────────────────────
 // Returns new length.
-inline int resample_linear(const float* in, int n_in,
+int resample_linear(const float* in, int n_in,
                     float* out, int max_out,
                     float fs_in, float fs_out) {
     int n_out = (int)((float)n_in * fs_out / fs_in);
@@ -82,16 +83,15 @@ inline int resample_linear(const float* in, int n_in,
 //
 // Layout: sos[section][b0,b1,b2,a0,a1,a2]  (a0 is always 1)
 //
-static const float SOS_COEFF[BP_ORDER][6] = {
-    // ← PASTE scipy output here ─────────────────────────────────────────────
-    { 0.00241379f,  0.0f,        -0.00241379f,  1.0f, -1.97985042f,  0.98527620f },
-    { 1.0f,         2.0f,         1.0f,          1.0f, -1.71197073f,  0.82265193f },
-    { 1.0f,        -2.0f,         1.0f,          1.0f, -1.94789044f,  0.95551714f },
-    // ────────────────────────────────────────────────────────────────────────
+// butter(3, [0.5/50.0, 6.0/50.0], btype='band', fs=100.0)
+static const float SOS_COEFF[3][6] = {
+    { 0.0037562010f, 0.0075124021f, 0.0037562010f,  1.0f, -1.6165647259f, 0.7306974084f },
+    { 1.0000000000f, 0.0000000000f, -1.0000000000f,  1.0f, -1.6926366286f, 0.7028117712f },
+    { 1.0000000000f, -2.0000000000f, 1.0000000000f,  1.0f, -1.9710795756f, 0.9721180959f },
 };
 
 // Direct Form II Transposed biquad filter (single section, in-place)
-static inline void biquad_dfII(float* x, int n,
+static void biquad_dfII(float* x, int n,
                          float b0, float b1, float b2,
                          float a1, float a2) {
     float w1 = 0.0f, w2 = 0.0f;
@@ -103,7 +103,7 @@ static inline void biquad_dfII(float* x, int n,
 }
 
 // Forward-backward (zero-phase) SOS filter  (mimics scipy filtfilt)
-inline void bandpass_ppg(float* sig, int n) {
+void bandpass_ppg(float* sig, int n) {
     // Forward pass
     for (int s = 0; s < BP_ORDER; s++) {
         const float* c = SOS_COEFF[s];
@@ -126,21 +126,23 @@ inline void bandpass_ppg(float* sig, int n) {
 
 // ─── 4a. Peak detection ───────────────────────────────────────────────────────
 // Returns count of peaks written into peaks[].
-inline int find_peaks_ppg(const float* sig, int n, float fs,
+int find_peaks_ppg(const float* sig, int n, float fs,
                    int* peaks, int max_peaks) {
     int    min_dist  = (int)(PEAK_MIN_DIST_S * fs);
     // Auto prominence from MAD
+    // Static scratch buffers — avoids VLA stack allocation
+    static float _median_tmp[MAX_RESAMP_SAMPLES];
     float  med = 0;
     {
-        float tmp[n];
-        memcpy(tmp, sig, n * sizeof(float));
-        med = medianf(tmp, n);
+        int nn = (n < MAX_RESAMP_SAMPLES) ? n : MAX_RESAMP_SAMPLES;
+        memcpy(_median_tmp, sig, nn * sizeof(float));
+        med = medianf(_median_tmp, nn);
     }
     float  mad = 0;
     {
-        float tmp[n];
-        for (int i = 0; i < n; i++) tmp[i] = fabsf(sig[i] - med);
-        mad = medianf(tmp, n) + 1e-8f;
+        int nn = (n < MAX_RESAMP_SAMPLES) ? n : MAX_RESAMP_SAMPLES;
+        for (int i = 0; i < nn; i++) _median_tmp[i] = fabsf(sig[i] - med);
+        mad = medianf(_median_tmp, nn) + 1e-8f;
     }
     float  min_prom = PEAK_PROM_MAD_MULT * mad;
 
@@ -167,7 +169,7 @@ inline int find_peaks_ppg(const float* sig, int n, float fs,
 
 // ─── 4b. Valley detection ─────────────────────────────────────────────────────
 // For each peak, find minimum in window [peak - vmax_s, peak - vmin_s].
-inline int find_valleys_ppg(const float* sig, int n, float fs,
+int find_valleys_ppg(const float* sig, int n, float fs,
                      const int* peaks, int n_peaks,
                      int* valleys, int max_valleys) {
     int vmin = (int)(VALLEY_SEARCH_MIN_S * fs);
@@ -201,17 +203,17 @@ inline int find_valleys_ppg(const float* sig, int n, float fs,
 // integer indices from x[0] to x[n-1], writing to baseline[].
 // Uses the Thomas algorithm for the tridiagonal system.
 // baseline must be of length at least x[n-1]+1.
-inline void cubic_spline_eval(const int* xs, const float* ys, int n,
+void cubic_spline_eval(const int* xs, const float* ys, int n,
                        float* baseline, int bl_len) {
     if (n < 2) return;
     int m = n - 1;  // number of intervals
 
-    // h[i] = xs[i+1] - xs[i]
-    float h[n];
+    // Static buffers for spline coefficients — n is always <= MAX_VALLEYS
+    static float h[MAX_VALLEYS];
+    static float diag[MAX_VALLEYS], sub[MAX_VALLEYS], rhs[MAX_VALLEYS];
     for (int i = 0; i < m; i++) h[i] = (float)(xs[i+1] - xs[i]);
 
     // Build RHS (Thomas algorithm, natural BC: M[0]=M[m]=0)
-    float diag[n], sub[n], rhs[n];
     rhs[0] = 0.0f; diag[0] = 1.0f; sub[0] = 0.0f;
     for (int i = 1; i < m; i++) {
         rhs[i]  = 6.0f * ((ys[i+1] - ys[i])/h[i] - (ys[i] - ys[i-1])/h[i-1]);
@@ -227,7 +229,7 @@ inline void cubic_spline_eval(const int* xs, const float* ys, int n,
         rhs[i]  -= w * rhs[i-1];
     }
     // Back substitution (M = second derivatives)
-    float M[n];
+    static float M[MAX_VALLEYS];
     M[m] = rhs[m] / diag[m];
     for (int i = m-1; i >= 0; i--)
         M[i] = (rhs[i] - sub[i]*M[i+1]) / diag[i];
@@ -280,7 +282,7 @@ static int   _valleys[MAX_VALLEYS];
 static int   _seg_start[MAX_VALLEYS];
 static int   _seg_end[MAX_VALLEYS];
 
-inline bool preprocess_pipeline(
+bool preprocess_pipeline(
     const float* raw, int n_raw, float fs_raw,
     float* signal_1500, float* mask_1500,
     float** detrended_out, int* n_detrended)
@@ -381,7 +383,7 @@ inline bool preprocess_pipeline(
 }
 
 // ─── Heart rate from detrended signal ─────────────────────────────────────────
-inline float sample_heart_rate(const float* sig, int n, float fs) {
+float sample_heart_rate(const float* sig, int n, float fs) {
     int min_dist = (int)(0.4f * fs);  // 150 bpm upper bound
     int peaks[200];
     int cnt = 0;
@@ -402,7 +404,7 @@ inline float sample_heart_rate(const float* sig, int n, float fs) {
 // ─── StandardScaler transform ────────────────────────────────────────────────
 // Scales: age, weight, bmi, height, actual_hr  (order matches SCALER_MEAN/STD)
 // Binary features (sex, preop_htn, preop_dm) are passed through unchanged.
-inline void scale_demographics(float& age, float& weight, float& bmi,
+void scale_demographics(float& age, float& weight, float& bmi,
                          float& height, float& actual_hr) {
     age       = (age       - SCALER_MEAN[0]) / SCALER_STD[0];
     weight    = (weight    - SCALER_MEAN[1]) / SCALER_STD[1];

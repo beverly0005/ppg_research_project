@@ -302,17 +302,14 @@ void keypad_init() {
     }
 }
 
-// Returns '\0' if no key pressed
-char keypad_scan() {
+// Raw scan — returns key held right now, or '\0'
+static char keypad_raw_scan() {
     for (int r = 0; r < 4; r++) {
-        // Drive row LOW
         gpio_set_level(ROW_PINS[r], 0);
-        vTaskDelay(pdMS_TO_TICKS(1));  // settle
+        vTaskDelay(pdMS_TO_TICKS(1));
         for (int c = 0; c < 4; c++) {
             if (gpio_get_level(COL_PINS[c]) == 0) {
                 gpio_set_level(ROW_PINS[r], 1);
-                // Debounce
-                vTaskDelay(pdMS_TO_TICKS(20));
                 return KEYMAP[r][c];
             }
         }
@@ -321,11 +318,45 @@ char keypad_scan() {
     return '\0';
 }
 
+// Edge-detected scan — fires ONCE per physical press, ignores held keys.
+// Call this from your state machine or ui_wait_key().
+// State: '\0' = idle, non-'\0' = waiting for release of that key.
+static char s_held_key = '\0';
+
+char keypad_scan() {
+    char raw = keypad_raw_scan();
+
+    if (raw == '\0') {
+        // No key is down — reset held state so next press fires again
+        s_held_key = '\0';
+        return '\0';
+    }
+
+    if (raw == s_held_key) {
+        // Same key still held — do NOT re-fire
+        return '\0';
+    }
+
+    // New key pressed (different from what was held, or first press)
+    s_held_key = raw;
+    vTaskDelay(pdMS_TO_TICKS(20));  // debounce settle
+
+    // Confirm it is still pressed after debounce delay
+    char confirm = keypad_raw_scan();
+    if (confirm != raw) {
+        s_held_key = '\0';
+        return '\0';   // bounce — ignore
+    }
+
+    return raw;   // clean leading edge
+}
+
+// Blocks until a key is pressed AND released (edge-triggered)
 char ui_wait_key() {
     char k = '\0';
     while (k == '\0') {
         k = keypad_scan();
-        if (k == '\0') vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
     return k;
 }
@@ -389,10 +420,13 @@ Demographics ui_collect_demographics() {
     return d;
 }
 
-void ui_show_result(float glucose_mmol) {
+void ui_show_result(float glucose_mgdl) {
+    // Model output is in mg/dL — convert to mmol/L for display
+    float glucose_mmol = glucose_mgdl / 18.0f;
     char l2[22], l3[22], l4[22];
     snprintf(l2, sizeof(l2), "%.1f mmol/L", glucose_mmol);
-    snprintf(l3, sizeof(l3), "(%.0f mg/dL)", glucose_mmol * 18.0f);
+    snprintf(l3, sizeof(l3), "(%.0f mg/dL)", glucose_mgdl);
+    // Status thresholds in mmol/L
     const char* status =
         glucose_mmol < 3.9f   ? "LOW"       :
         glucose_mmol <= 7.8f  ? "NORMAL"    :
