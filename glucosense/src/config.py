@@ -65,7 +65,8 @@ APP_CSS = """
   .range-low { background: rgba(255,200,87,0.2); color: #ffc857; }
   .range-high { background: rgba(255,107,107,0.2); color: #ff6b6b; }
   .stNumberInput input, .stSelectbox select, .stTextInput input { background-color: var(--surface) !important; border: 1px solid var(--border) !important; color: var(--text) !important; border-radius: 8px !important; }
-  .stDateInput input, .stTimeInput input, .stTimeInput [data-baseweb="select"] *, .stSelectbox [data-baseweb="select"] *, .stTextArea textarea { color: #0b0f1a !important; }
+  .stDateInput input, .stTimeInput input, .stTimeInput [data-baseweb="select"] *, .stSelectbox [data-baseweb="select"] *, .stTextArea textarea {color: var(--text) !important;}
+#   .stDateInput input, .stTimeInput input, .stTimeInput [data-baseweb="select"] *, .stSelectbox [data-baseweb="select"] *, .stTextArea textarea { color: #0b0f1a !important; }
   .stButton > button { background: linear-gradient(135deg, #00d4aa, #00a3ff) !important; color: #0b0f1a !important; border: none !important; border-radius: 8px !important; font-family: 'Space Mono', monospace !important; font-weight: 700 !important; letter-spacing: 0.05em !important; padding: 0.6rem 1.5rem !important; width: 100%; }
   .stButton > button:hover { opacity: 0.9 !important; transform: translateY(-1px) !important; }
   [data-testid="stMetric"] { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; }
